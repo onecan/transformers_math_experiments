@@ -560,7 +560,8 @@ class CharDataset(Dataset):
         self.words = words
         self.chars = chars
         self.max_word_length = max_word_length
-        self.stoi = {ch:i+1 for i,ch in enumerate(self.chars)} # bijection 'V13' <-> 13
+#        self.stoi = {ch:i+1 for i,ch in enumerate(self.chars)} # bijection 'V13' <-> 13
+        self.stoi = { ch:int(ch[1:]) for ch in self.chars}
         self.itos = {i:s for s,i in self.stoi.items()} # inverse mapping: 13 -> 'V13'
 
     def __len__(self):
