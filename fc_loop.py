@@ -284,7 +284,12 @@ if __name__ == '__main__':
     logger.info(f"initializing at generation: {initial_gen}")
     input_file = args.dump_path + f"/search_output_{initial_gen}-tokenized.txt"
     train_dataset, test_dataset = create_datasets(input_file)
-    vocab_size = args.n_tokens + 1
+    #vocab_size = args.n_tokens + 1     # NOTE I think this line was causing a KeyError in the decode step
+    # The problem was that not all tokens were appearing in the train_dataset.
+    # This meant that the model was producing a prob distribution over args.n_tokens things,
+    # which would later cause a KeyError when decoding, I think (?).
+    # I am not sure why the +1 is needed in both of these.
+    vocab_size = len(train_dataset.chars)+1
     block_size = args.max_output_length + 1
     logger.info(f"dataset determined that: {vocab_size=}, {block_size=}")
 
