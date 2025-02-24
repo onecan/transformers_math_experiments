@@ -173,6 +173,7 @@ def decode():
 def create_datasets(input_file):
 
     # preprocessing of the input text file
+    # here, each line (i.e. a whole adjacency matrix) is regarded as a word
     with open(input_file, 'r') as f:
         data = f.read()
     words = data.splitlines()
@@ -206,7 +207,10 @@ def create_datasets(input_file):
     return train_dataset, test_dataset
 
 def write_samples(num=10, new_file=False, use_logger=False):
-    """ samples from the model and pretty prints the decoded samples """
+    """
+    Samples from the model and pretty prints the decoded samples
+    Returns: the number of samples, the total length of all samples, and the max length of a sample
+    """
     X_init = torch.zeros(num, 1, dtype=torch.long).to(args.device)
     top_k = args.top_k if args.top_k != -1 else None
     steps = train_dataset.get_output_length() - 1 # -1 because we already start with <START> token (index 0)
@@ -277,6 +281,7 @@ if __name__ == '__main__':
     if initial_gen == 0:
         os.environ["JULIA_NUM_THREADS"] = str(args.nb_threads)  # Set the environment variable
         logger.info(f"JULIA_NUM_THREADS is set to {os.environ['JULIA_NUM_THREADS']}")
+        # generates final_database_size many examples, untokenized
         subprocess.run(["julia","search_fc.jl", args.dump_path, str(args.nb_local_searches), str(args.num_initial_empty_objects), str(args.final_database_size), str(args.target_db_size)])
         tokenize(f"{args.dump_path}/search_output_1.txt", args.n_tokens)
         initial_gen = 1
@@ -326,7 +331,9 @@ if __name__ == '__main__':
         logger.info("training")
         # python makemoretokens.py --i search_output_1-tokenized.txt --device cuda
         #train_makemore()
-        # init optimizer
+        # init optimizer with AdamW algorithm
+        # https://pytorch.org/docs/stable/optim.html
+        # https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, betas=(0.9, 0.99), eps=1e-8)
 
         # init dataloader
@@ -341,14 +348,14 @@ if __name__ == '__main__':
 
             # get the next batch, ship to device, and unpack it to input and target
             batch = batch_loader.next()
-            batch = [t.to(args.device) for t in batch]
-            X, Y = batch
+            batch = [t.to(args.device) for t in batch] # NOTE This moves the tensors (batch) to the appropriate device for processing
+            X, Y = batch # NOTE Claude says X is usually input data, Y is usually labels of some kind (for supervised training)
 
             # feed into the model
             try:
                 logits, loss = model(X, Y)
                 # calculate the gradient, update the weights
-                model.zero_grad(set_to_none=True)
+                model.zero_grad(set_to_none=True) # NOTE https://stackoverflow.com/questions/48001598/why-do-we-need-to-call-zero-grad-in-pytorch
                 loss.backward()
                 optimizer.step()
 
@@ -423,6 +430,8 @@ if __name__ == '__main__':
         decode()
         logger.info(f"Memory allocated:  {torch.cuda.memory_allocated(0)/(1024*1024):.2f}MB, reserved: {torch.cuda.memory_reserved(0)/(1024*1024):.2f}MB")
         logger.info(f"============ End of generation {generation} ============")
+
+        # begin search phase
         logger.info(f"launching search.jl")
         os.environ["JULIA_NUM_THREADS"] = str(args.nb_threads)  # Set the environment variable
         logger.info(f"JULIA_NUM_THREADS is set to {os.environ['JULIA_NUM_THREADS']}")

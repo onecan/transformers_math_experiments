@@ -153,6 +153,7 @@ class Transformer(nn.Module):
         # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
+            # See https://pytorch.org/docs/stable/generated/torch.nn.functional.cross_entropy.html
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
 
         return logits, loss
