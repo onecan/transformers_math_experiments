@@ -170,7 +170,7 @@ def decode():
     else:
         logger.info(f"Error: The file {input_file} does not exist.")
 
-def create_datasets(input_file):
+def create_datasets(input_file, chars=None):
 
     # preprocessing of the input text file
     # here, each line (i.e. a whole adjacency matrix) is regarded as a word
@@ -181,8 +181,9 @@ def create_datasets(input_file):
     words = [w for w in words if w] # get rid of any empty strings
     words = [w.split(",") for w in words]
 
-    # maybe a tad hacky: we sort our dataset so that it is ordered V1, V2, .... V10, V11 ....
-    chars = sorted(list(set([i for word in words for i in word])), key=lambda x: int(x[1:]))
+    if chars == None:
+        # maybe a tad hacky: we sort our dataset so that it is ordered V1, V2, .... V10, V11 ....
+        chars = sorted(list(set([i for word in words for i in word])), key=lambda x: int(x[1:]))
 
     max_word_length = max(len(w) for w in words)
     logger.info(f"number of examples in the dataset: {len(words)}")
@@ -287,15 +288,17 @@ if __name__ == '__main__':
         initial_gen = 1
     
     logger.info(f"initializing at generation: {initial_gen}")
-    input_file = args.dump_path + f"/search_output_{initial_gen}-tokenized.txt"
-    train_dataset, test_dataset = create_datasets(input_file)
-    #vocab_size = args.n_tokens + 1     # NOTE I think this line was causing a KeyError in the decode step
+
+    vocab_size = args.n_tokens + 1     # NOTE I think this line was causing a KeyError in the decode step
     # The problem was that not all tokens were appearing in the train_dataset.
     # This meant that the model was producing a prob distribution over args.n_tokens things,
     # which would later cause a KeyError when decoding, I think (?).
     # I am not sure why the +1 is needed in both of these.
-    vocab_size = len(train_dataset.chars)+1
+    #vocab_size = len(train_dataset.chars)+1
+    char_set = [f'V{i}' for i in range(0,vocab_size)]
     block_size = args.max_output_length + 1
+    input_file = args.dump_path + f"/search_output_{initial_gen}-tokenized.txt"
+    train_dataset, test_dataset = create_datasets(input_file, chars=char_set)
     logger.info(f"dataset determined that: {vocab_size=}, {block_size=}")
 
     # init model
@@ -448,6 +451,4 @@ if __name__ == '__main__':
         logger.info("tokenizing")
         tokenize(f"{args.dump_path}/search_output_{generation+1}.txt", args.n_tokens)
         input_file = args.dump_path + f"/search_output_{generation+1}-tokenized.txt"
-        train_dataset, test_dataset = create_datasets(input_file)
-        
-
+        train_dataset, test_dataset = create_datasets(input_file, chars=char_set)
